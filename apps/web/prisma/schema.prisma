@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+  binaryTargets = ["native", "darwin-arm64", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chatSessions ChatSession[]
+  usageMetrics UsageMetric[]
+
+  @@map("users")
+}
+
+model ChatSession {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String    @default("新對話")
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId, createdAt])
+  @@map("chat_sessions")
+}
+
+model Message {
+  id          String             @id @default(cuid())
+  sessionId   String
+  role        MessageRole
+  content     String             @db.Text
+  contentType MessageContentType @default(text)
+  chartConfig Json?
+  createdAt   DateTime           @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("messages")
+}
+
+enum MessageRole {
+  user
+  assistant
+}
+
+enum MessageContentType {
+  text
+  chart
+  mixed
+}
+
+// Token 使用統計 - 按用戶追蹤
+model UsageMetric {
+  id               String   @id @default(cuid())
+  userId           String
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("usage_metrics")
+}

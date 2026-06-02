@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  # Next.js Web Application
+  web:
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    container_name: vpp-web
+    restart: unless-stopped
+    environment:
+      # Database (use host.docker.internal to connect to host's PostgreSQL)
+      DATABASE_URL: ${DATABASE_URL}
+
+      # JWT Secret (CHANGE THIS IN PRODUCTION!)
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Anthropic API (required for AI chat)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # External API (upstream data source — use host.docker.internal to reach neihu-data backend on same machine)
+      NEXT_PUBLIC_API_BASE_URL: http://host.docker.internal:3003/data
+
+      # Self URL (for server-side internal API calls)
+      NEXT_PUBLIC_SITE_URL: http://localhost:3001
+
+      # Node Environment
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    networks:
+      - vpp-network
+    # Allow connecting to host services (for macOS/Windows)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Start the application (migrations run separately)
+    command: node apps/web/server.js
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vpp-network:
+    driver: bridge
