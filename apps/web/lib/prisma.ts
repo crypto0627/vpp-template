@@ -50,23 +50,31 @@ function createPool() {
   }
 }
 
-// 創建 PostgreSQL 連接池
-const pool = globalForPrisma.pool ?? createPool();
+// Lazily create the Prisma client on first use, not at import time.
+// This avoids requiring DATABASE_URL during `next build` page-data collection,
+// where route modules are imported but no DB query is actually executed.
+function getPrismaClient(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-// 創建 Prisma Pg Adapter
-const adapter = new PrismaPg(pool);
-
-// 創建 Prisma Client with adapter
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+  const pool = globalForPrisma.pool ?? createPool();
+  const adapter = new PrismaPg(pool);
+  const client = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prisma = client;
   globalForPrisma.pool = pool;
+  return client;
 }
+
+// Proxy defers client creation until a property is accessed at runtime.
+const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export { prisma };
