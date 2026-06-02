@@ -58,7 +58,7 @@ const storeCreator: StateCreator<SiteDataState> = (set) => ({
   },
 
   // No-op in template — data is static
-  fetchData: async (_siteId: SiteId) => {
+  fetchData: async () => {
     // Replace with a real fetch when connecting to a live backend
   },
 
