@@ -4,40 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **VPP (Virtual Power Plant) Dashboard** - a comprehensive Next.js application for monitoring and managing energy storage systems and EV charging sites. The project is a Turborepo monorepo that provides:
+This is a **VPP (Virtual Power Plant) Dashboard** - a Next.js application for monitoring and managing energy storage systems and EV charging sites. The project is a Turborepo monorepo that provides:
 
 - ⚡ **Real-time Energy Monitoring** - Battery status, charging pile usage, energy flow visualization
 - 💰 **Intelligent Cost Optimization** - Peak/off-peak management, automatic savings calculation (15-20% cost reduction)
 - 🔋 **Cross-Day SOC Simulation** - Accurate battery charge/discharge strategy simulation
-- 🤖 **AI Smart Assistant** - Claude-powered multilingual energy consultation
 - 📊 **Historical Data Analysis** - Monthly/annual reports, cost comparison, trend analysis
 
 **Key Sites:**
 
 - **Neihu (內湖)**: EV charging station with 370kWh BESS, real-time data from external API
 - **ETai (億泰電纜)**: High-voltage industrial site with 10MWh BESS + Demand Response program
-
-## Quick Reference
-
-### 📚 Complete Documentation
-
-**Primary Documentation Hub:** [`apps/web/docs/README.md`](apps/web/docs/README.md)
-
-Before making significant changes, consult:
-
-- [**PROJECT_STRUCTURE.md**](apps/web/docs/PROJECT_STRUCTURE.md) - Complete architecture guide
-- [**REPORT_ALGORITHM_SUMMARY.md**](apps/web/docs/REPORT_ALGORITHM_SUMMARY.md) - BESS simulation algorithms
-- [**AI_MODULE_STRUCTURE.md**](apps/web/docs/AI_MODULE_STRUCTURE.md) - AI module design
-- [**TEST-RESULTS.md**](apps/web/docs/TEST-RESULTS.md) - Test verification records
-
-### 🎯 Main README
-
-See [`README.md`](README.md) for complete project information including:
-
-- Features, tech stack, architecture
-- Quick start guide, development workflow
-- Core algorithms (BESS simulation, electricity pricing)
-- Deployment instructions
 
 ---
 
@@ -55,8 +32,8 @@ pnpm install
 # Run all apps in development mode
 pnpm dev
 
-# Run only the web app (port 3000)
-turbo dev --filter=web
+# Run only the frontend app
+turbo dev --filter=frontend
 ```
 
 ### Building
@@ -65,8 +42,8 @@ turbo dev --filter=web
 # Build all apps and packages
 pnpm build
 
-# Build only the web app
-turbo build --filter=web
+# Build only the frontend app
+turbo build --filter=frontend
 ```
 
 ### Linting & Type Checking
@@ -75,9 +52,6 @@ turbo build --filter=web
 # Lint all code
 pnpm lint
 
-# Type check all code
-pnpm check-types
-
 # Format all code
 pnpm format
 ```
@@ -85,37 +59,26 @@ pnpm format
 ### Database Operations (Prisma)
 
 ```bash
-cd apps/web
+cd apps/frontend
 
-# Generate Prisma client
+# Generate Prisma client (only safe operation from this app)
 npx prisma generate
 
-# Run migrations (development)
-npx prisma migrate dev
-
-# Deploy migrations (production)
-npx prisma migrate deploy
-
-# Open Prisma Studio
-npx prisma studio
+# Migrations are NOT run from apps/frontend — schema is owned here but
+# run migrate dev / migrate deploy from a dedicated migration environment
 ```
 
-### Testing
+### Docker
 
 ```bash
-cd apps/web
+# Build and start all services (postgres + frontend)
+docker compose up --build
 
-# Most comprehensive BESS cost comparison test
-npx tsx scripts/tests/integration/electricity-cost-comparison.test.ts
+# Start in background
+docker compose up -d --build
 
-# Cross-day SOC persistence test
-npx tsx scripts/tests/integration/cross-day-soc.test.ts
-
-# AI chat full flow test
-npx tsx scripts/tests/integration/chat-api-full.test.ts
-
-# Run all tests (Vitest)
-pnpm test
+# View logs
+docker compose logs -f frontend
 ```
 
 ---
@@ -125,54 +88,83 @@ pnpm test
 ### Monorepo Structure
 
 ```
-vpp/                                    # Turborepo root
-├── README.md                           # Main project documentation
+vpp-template/                           # Turborepo root
 ├── CLAUDE.md                           # This file (Claude guidance)
+├── docker-compose.yml                  # Docker Compose (postgres + frontend)
 ├── turbo.json                          # Turborepo configuration
 ├── apps/
-│   └── web/                            # Main Next.js application
+│   └── frontend/                       # Main Next.js application (port 3000)
+│       ├── Dockerfile                  # Multi-stage Docker build
+│       ├── .dockerignore
+│       ├── next.config.ts              # Next.js config (output: standalone)
 │       ├── app/                        # Next.js App Router
+│       │   ├── api/                    # API routes
+│       │   ├── auth/                   # Sign in / Sign up pages
+│       │   ├── sites/[siteId]/         # Site detail, history, report pages
+│       │   └── page.tsx                # Home dashboard
 │       ├── components/                 # React components
-│       ├── services/                   # Business logic layer (SOA)
-│       ├── stores/                     # Zustand state management
-│       ├── utils/                      # Core utilities
-│       │   ├── bess-unified.ts         # 🔋 BESS re-export (backward compat)
-│       │   └── bess-algorithm/         # 🔋 Modular BESS simulation
-│       │       ├── index.ts            # Public API barrel export
-│       │       ├── constants.ts        # Config constants & helpers
-│       │       ├── time-utils.ts       # Taiwan time utilities
-│       │       ├── electricity-rate.ts # Rate lookup functions
-│       │       ├── state.ts            # State creation & voltage calc
-│       │       ├── step-simulation.ts  # Core single-step simulation
-│       │       ├── realtime-simulation.ts  # Batch real-time processing
-│       │       ├── cost-calculation.ts # Cost computation
-│       │       ├── report-simulation.ts    # Report-specific simulation
-│       │       └── legacy.ts           # Legacy function wrappers
-│       ├── config/                     # Configuration files
-│       │   └── site-configs.ts         # Site-specific configs (rates, capacity)
-│       ├── constants/                  # Constants
-│       │   ├── taiwan-holidays.ts      # National holidays
-│       │   ├── auth-constants.ts       # Email whitelist & RBAC roles
-│       │   └── neihu-charging-station-data.json  # Historical data
-│       ├── types/                      # TypeScript type definitions
-│       ├── lib/                        # Libraries and utilities
-│       │   ├── prisma.ts               # Prisma client singleton
-│       │   └── ai/prompts.ts           # AI system prompts
-│       ├── middleware/                 # Middleware (auth)
-│       ├── prisma/                     # Prisma schema and migrations
-│       ├── docs/                       # 📚 Complete technical documentation
-│       │   ├── README.md               # Documentation hub
-│       │   ├── PROJECT_STRUCTURE.md    # Architecture guide
-│       │   ├── AI_MODULE_STRUCTURE.md  # AI module design
-│       │   ├── REPORT_ALGORITHM_SUMMARY.md  # Algorithms
-│       │   ├── PERIOD_SAVINGS_SETUP.md # Savings calculation
-│       │   └── TEST-RESULTS.md         # Test records
-│       └── scripts/                    # Scripts and tests
-│           └── tests/                  # Organized test structure
-│               ├── integration/        # Integration tests
-│               ├── unit/               # Unit tests
-│               ├── e2e/                # E2E tests
-│               └── type-checking/      # Type checking tests
+│       │   ├── home/                   # Dashboard (map, finance card, stats)
+│       │   ├── site/                   # Site detail components
+│       │   ├── history/                # Historical analysis components
+│       │   ├── report/                 # Report page components
+│       │   ├── controller/             # 維運操作面板 components (mock, no real API)
+│       │   ├── notify/                 # Notification list + item components
+│       │   ├── auth/                   # Auth forms
+│       │   ├── layout/                 # Sidebar (with unread badge)
+│       │   ├── providers/              # AuthProvider + NotificationProvider
+│       │   └── ui/                     # shadcn/ui primitives
+│       ├── config/
+│       │   └── site-configs.ts         # BESS configs (rates, SOH, DR, sReg)
+│       ├── constants/
+│       │   ├── auth-constants.ts       # ALLOWED_EMAILS + USER_ROLES RBAC
+│       │   ├── chart-colors.ts         # CHART_COLORS — single source of truth
+│       │   ├── notification-rules.ts   # Alert thresholds + cooldown durations per rule
+│       │   ├── taiwan-holidays.ts      # Taiwan holidays 2022–2026
+│       │   └── ETai_2021_2025.json     # ETai hourly load data (2.1 MB)
+│       ├── hooks/
+│       │   ├── use-auth-guard.ts       # Auth redirect + role check
+│       │   ├── use-battery-data.ts     # Derives BatteryData from data-store
+│       │   ├── use-live-stats.ts       # Polls /api/neihu/data every 10s
+│       │   └── use-notification-engine.ts # Watches data-store; debounced rule evaluation
+│       ├── lib/
+│       │   ├── prisma.ts               # PrismaClient singleton (PrismaPg)
+│       │   └── utils.ts                # shadcn cn() helper
+│       ├── prisma/
+│       │   └── schema.prisma           # User model only
+│       ├── stores/
+│       │   ├── auth-store.ts           # Zustand auth (JWT + localStorage)
+│       │   ├── controller-store.ts     # Zustand controller mock state + operations (NOT persisted)
+│       │   ├── data-store.ts           # Zustand site data + BESS state
+│       │   └── notification-store.ts   # Zustand notifications (localStorage: vpp-notification-store)
+│       ├── types/
+│       │   ├── auth.ts                 # User, AuthState, UserRole
+│       │   ├── bess-type.ts            # PersistedBESSState
+│       │   ├── controller-types.ts     # SystemStatus, PCSStatus, BMSStatus, ControlOperation, BESSMetrics, etc.
+│       │   ├── data-type.ts            # SiteId, SummaryData, PeriodSavings
+│       │   ├── notification-type.ts    # Notification, PendingNotification, NotificationSeverity
+│       │   ├── report-type.ts          # Report types
+│       │   └── telemetry.ts            # TelemetryData
+│       └── utils/
+│           ├── bess-algorithm/         # Modular BESS simulation
+│           │   ├── index.ts            # Barrel export
+│           │   ├── constants.ts        # Config constants
+│           │   ├── time-utils.ts       # Taiwan TZ peak detection
+│           │   ├── electricity-rate.ts # Season-aware rate lookup
+│           │   ├── state.ts            # State creation & voltage calc
+│           │   ├── step-simulation.ts  # Core single-step logic
+│           │   ├── realtime-simulation.ts # Batch real-time processing
+│           │   ├── cost-calculation.ts # Cost computation (with/without BESS)
+│           │   ├── report-simulation.ts # Report-specific simulation
+│           │   └── legacy.ts           # Legacy wrappers
+│           ├── bess-unified.ts         # Re-export barrel (backward compat)
+│           ├── echarts-helpers.ts      # ECharts helpers (axisStyle, tooltipStyle, areaGradient)
+│           ├── feature-flags.ts        # FEATURE_FLAGS.USE_NEIHU_SIMULATION
+│           ├── live-stats.ts           # calcLiveStats() — kWh + cost from telemetry
+│           ├── mock-controller-data.ts # Initial mock state for controller (Neihu/ETai) + applyRandomVariation()
+│           ├── notification-engine.ts  # Pure fn: evaluateNotificationRules() → PendingNotification[]
+│           ├── period-savings.ts       # calculatePeriodSavings(period)
+│           ├── report-csv-export.ts    # CSV export for reports
+│           └── report-generator.ts     # generateReport() — BESS simulation over date range
 └── packages/                           # Shared packages
     ├── eslint-config/                  # Shared ESLint config
     └── typescript-config/              # Shared TypeScript config
@@ -180,18 +172,18 @@ vpp/                                    # Turborepo root
 
 ### Tech Stack
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript 5.9.2 (strict mode)
-- **UI**: React 19, Tailwind CSS 4, Radix UI components
-- **State Management**: Zustand (with persist middleware)
-- **Database**: PostgreSQL via Prisma ORM 7 (with PrismaPg adapter)
-- **Authentication**: JWT-based auth with bcrypt (HTTP-only cookies)
-- **AI**: Anthropic Claude Haiku 3 (@ai-sdk/anthropic)
-- **Charts**: Recharts
-- **Maps**: Mapbox GL JS
+- **Framework**: Next.js 16.2.7 (App Router, output: standalone)
+- **Language**: TypeScript 5 (strict mode)
+- **UI**: React 19.2, Tailwind CSS v4, `@base-ui/react` (shadcn)
+- **State Management**: Zustand 5 (`auth-store` + `data-store` + `notification-store` + `controller-store`)
+- **Database**: PostgreSQL via Prisma 7 + PrismaPg adapter
+- **Authentication**: JWT (7d) + bcrypt + HTTP-only cookies
+- **Charts**: ECharts 5 (`echarts-for-react`)
+- **Maps**: MapLibre GL 5
+- **Forms**: react-hook-form + zod
 - **Package Manager**: pnpm 9.0.0
 - **Monorepo Tool**: Turborepo
-- **Testing**: Vitest
+- **Container**: Docker (multi-stage, node:22-alpine)
 
 ---
 
@@ -199,69 +191,36 @@ vpp/                                    # Turborepo root
 
 ### 1. 🔋 BESS Simulation Core
 
-**Location:** [`apps/web/utils/bess-algorithm/`](apps/web/utils/bess-algorithm/)
-**Legacy re-export:** [`apps/web/utils/bess-unified.ts`](apps/web/utils/bess-unified.ts) (backward compatibility)
-
-The BESS simulation has been refactored from a monolithic file into a modular architecture:
+**Location:** [`apps/frontend/utils/bess-algorithm/`](apps/frontend/utils/bess-algorithm/)
+**Re-export:** [`apps/frontend/utils/bess-unified.ts`](apps/frontend/utils/bess-unified.ts)
 
 | Module | Purpose |
 |--------|---------|
 | `step-simulation.ts` | Core single-step simulation logic |
 | `realtime-simulation.ts` | Batch processing of real-time data |
-| `cost-calculation.ts` | Electricity cost computation (with/without BESS) |
+| `cost-calculation.ts` | Electricity cost (with/without BESS) |
 | `report-simulation.ts` | Report-specific simulation |
-| `time-utils.ts` | Taiwan time utilities (`isPeakTimeTW`, `shouldDisableBESS`) |
-| `electricity-rate.ts` | Rate lookup functions (`getElectricityRate`) |
+| `time-utils.ts` | `isPeakTimeTW()`, `isSemiPeakTimeTW()` |
+| `electricity-rate.ts` | `getElectricityRate()` — season-aware |
 | `state.ts` | State creation & voltage calculation |
 | `constants.ts` | Configuration constants |
 | `legacy.ts` | Legacy function wrappers |
 
 **Critical Rules - MUST FOLLOW:**
 
-- ✅ SOC never guessed: Calculated from previous state, no time heuristics
-- ✅ Charging only on weekdays at 00:00: One session per day (weekends/holidays disabled)
+- ✅ SOC never guessed: calculated from previous state, no time heuristics
+- ✅ Charging only on weekdays at 00:00: one session per day (weekends/holidays disabled)
 - ✅ Full power charging: PCS max power (not limited by contract capacity)
 - ✅ Stop when full: `chargeSessionActive = false`
-- ✅ Peak discharge: Follows load, limited by PCS (weekdays only)
-- ✅ Weekend/Holiday: Completely disabled (no charging, no discharging)
-- ✅ Cross-day persistence: SOC state persists, no reset
+- ✅ Peak discharge: follows load, limited by PCS (weekdays only)
+- ✅ Weekend/Holiday: completely disabled (no charging, no discharging)
+- ✅ Cross-day persistence: SOC state persists via localStorage (`vpp-bess-state-{siteId}`)
 
-**⚠️ WARNING:** Before modifying BESS algorithm modules:
+**Feature flag:** `FEATURE_FLAGS.USE_NEIHU_SIMULATION` in `utils/feature-flags.ts` — when `true`, `data-store.ts` runs `simulateBESSForRealData()` on every fetch.
 
-1. Read file header strict rules
-2. Consult [`docs/REPORT_ALGORITHM_SUMMARY.md`](apps/web/docs/REPORT_ALGORITHM_SUMMARY.md)
-3. Run full test suite (`electricity-cost-comparison.test.ts`)
-4. Verify cross-day SOC persistence
+### 2. 💰 Electricity Pricing Algorithm
 
-### 2. 🤖 AI Module (Service-Oriented Architecture)
-
-**Location:** [`apps/web/services/ai/`](apps/web/services/ai/)
-
-**Architecture:**
-
-- **chat-service.ts** - Conversation management (CRUD operations)
-- **ai-provider.ts** - AI model interaction (generateText)
-- **usage-tracker.ts** - Token usage tracking
-- **context-provider.ts** - Real-time data context provider
-- **historical-data-service.ts** - Historical data queries
-- **response-parser.ts** - Parses AI responses for `<CHART>` tags, extracts chart configs
-
-**Features:**
-
-- ✅ Multilingual support (auto-detect Chinese/English)
-- ✅ Real-time data queries (auto-fetch from API)
-- ✅ Historical data queries (natural language date parsing)
-- ✅ Conversation history management (session-based)
-- ✅ Chart rendering in chat (power-demand, bess-charge-discharge, cost-trend, cost-comparison, battery-soc, yearly-comparison)
-
-**API Route:** [`apps/web/app/api/ai/chat/route.ts`](apps/web/app/api/ai/chat/route.ts)
-**Prompts:** [`apps/web/lib/ai/prompts.ts`](apps/web/lib/ai/prompts.ts)
-
-**Documentation:** [`apps/web/docs/AI_MODULE_STRUCTURE.md`](apps/web/docs/AI_MODULE_STRUCTURE.md)
-
-### 3. 💰 Electricity Pricing Algorithm
-
-**Location:** [`apps/web/config/site-configs.ts`](apps/web/config/site-configs.ts)
+**Location:** [`apps/frontend/config/site-configs.ts`](apps/frontend/config/site-configs.ts)
 
 **Two Pricing Models:**
 
@@ -277,8 +236,6 @@ The BESS simulation has been refactored from a monolithic file into a modular ar
 | **Peak** | 12.47 | 12.14 |
 | **Off-Peak** | 3.05 | 2.90 |
 
-- Summer Peak: 16:00-22:00 (weekdays), Non-Summer Peak: 15:00-21:00 (weekdays)
-
 **ETai Rates (batch-tou, NT$/kWh):**
 
 | Period | Summer (5/16-10/15) | Non-Summer |
@@ -287,71 +244,102 @@ The BESS simulation has been refactored from a monolithic file into a modular ar
 | **Semi-Peak** | 3.26 | 3.00 |
 | **Off-Peak** | 3.18 | 3.18 |
 
-- Unified Peak: 15:30-21:30 (weekdays), Semi-Peak: 15:30-21:30 (Saturdays only)
-
 **Calculation:**
 
 ```typescript
 Total Cost = (Peak × PeakRate) + (SemiPeak × SemiPeakRate) + (OffPeak × OffPeakRate)
 Savings = Cost Without BESS - Cost With BESS
-Savings Rate = (Savings / Cost Without BESS) × 100%
 ```
 
-### 3.1 ⚡ Demand Response (DR) Program
+### 2.1 ⚡ Demand Response (DR) Program
 
 **Applies to:** ETai only | **Season:** May 1 - October 31 (weekdays, excl. holidays)
 
 ```typescript
-Daily DR Discount = Suppressed_KW × Execution_Rate × Hours × Rate × Discount_Ratio
-                  = 1000 × 1.0 × 4 × 1.84 × 1.2 = NT$8,832/day
+Daily DR Discount = 1000 kW × 1.0 × 4h × NT$1.84 × 1.2 = NT$8,832/day
 ```
-
-**DR Parameters:**
-- Suppressed Load: 1,000 kW | Execution Rate: 100% | Hours: 4
-- Rate: NT$1.84/kWh | Discount Ratio: 120%
-- Night Charging: 1,000 kW extra at 22:00-24:00 during DR season
 
 **Key functions:** `isDRSeasonDate()`, `getDailyDRCost()` in `site-configs.ts`
 
-### 4. 📊 State Management
+### 3. 📊 State Management
 
-**Location:** [`apps/web/stores/`](apps/web/stores/)
+**data-store.ts** — `useSiteDataStore`
 
-**data-store.ts** - Multi-site data management
+- Manages `TelemetryData[]`, `SummaryData`, `PersistedBESSState` per site
+- Runs BESS simulation on fetch (controlled by `FEATURE_FLAGS.USE_NEIHU_SIMULATION`)
+- Persists BESS state to localStorage per site
+- ETai returns empty mock data (no real-time backend)
 
-- Manages telemetry data for multiple sites: `Record<SiteId, TelemetryData[]>`
-- Auto-calculates summary metrics (electricityUsage, costs, solarPower, energyStorage, chargingPiles)
-- Auto-refreshes every 10 seconds (site detail pages)
-- Supports time ranges: "today" | "month" | "year"
+**auth-store.ts** — `useAuthStore`
 
-**auth-store.ts** - Authentication state management
-
-- JWT-based authentication (HTTP-only cookies)
-- Persisted to localStorage (user + isAuthenticated)
+- JWT-based auth (HTTP-only cookies)
+- Persisted to localStorage (key: `fe-auth-storage`)
 - Methods: `signIn()`, `signUp()`, `signOut()`, `checkAuth()`
+
+**notification-store.ts** — `useNotificationStore`
+
+- Stores `Notification[]` + `lastFiredAt` (cooldown tracking) per ruleId
+- Persisted to localStorage (key: `vpp-notification-store`)
+- Methods: `addNotifications()`, `markRead()`, `markAllRead()`, `clear()`
+- Max 100 notifications retained; newest prepended
+
+**controller-store.ts** — `useControllerStore`
+
+- Mock state for the 維運操作面板 (Controller page) — **NOT persisted** (resets on page refresh)
+- Holds `ControllerSiteState` per site: `systemStatus`, `pcsStatus`, `bmsStatus`, `operationMode`, `bessMetrics`, `sensors`, `errorCodes`, `lastOperation`
+- `performOperation(siteId, op)` — simulates 2-second async operation, then updates state per operation type
+- `tickVariation()` — apply ±0.5% SOC / ±1°C temperature random drift (called every 5s from controller page)
+- Initial state generated by `utils/mock-controller-data.ts`
+
+### 4. 🔔 Notification System
+
+**Location:** `utils/notification-engine.ts`, `stores/notification-store.ts`, `hooks/use-notification-engine.ts`
+
+Rules are evaluated client-side against the live data-store. No backend required.
+
+| Rule ID | Trigger | Severity | Site | Cooldown |
+|---------|---------|----------|------|----------|
+| `neihu-soc-low` | SOC < 15% | warning | Neihu | 30 min |
+| `neihu-soc-full` | SOC ≥ 95% | info | Neihu | 60 min |
+| `neihu-power-warning` | Power > 90% of 432 kW | warning | Neihu | 15 min |
+| `neihu-power-critical` | Power > 100% of 432 kW | critical | Neihu | 10 min |
+| `neihu-data-stale` | Last update > 15 min | warning | Neihu | 30 min |
+| `neihu-charger-idle` | Active chargers = 0 | info | Neihu | 60 min |
+| `etai-dr-season-active` | Date in 5/1–10/31 | info | ETai | 24 hr |
+
+**Data flow:**
+```
+data-store lastUpdated / user changes
+  → use-notification-engine.ts (debounce 3s)
+  → evaluateNotificationRules() [pure fn — no side effects]
+  → filter by lastFiredAt cooldown (notification-store)
+  → addNotifications() → localStorage persist
+  → sidebar Bell badge (unread count)
+  → /notify page (filter tabs: 全部 / 未讀 / 重要 / 內湖 / 億泰)
+```
+
+**RBAC filtering:** admin sees all sites; worker/viewer filtered by `sitePermissions`.
+**Thresholds:** edit `constants/notification-rules.ts` — `NOTIFICATION_THRESHOLDS` + `NOTIFICATION_COOLDOWNS_MS`.
 
 ### 5. 🗄️ Data Sources
 
-**Real-time Data:**
+**Real-time Data (Neihu only):**
 
-- Source: `http://127.0.0.1:3003/neihu/data?range=today`
+- Route: `GET /api/neihu/data?range=today`
+- Proxies to: `fortune-ess.com.tw/neihu/data`
 - Format: `{ data: TelemetryData[] }`
-- Update frequency: Every 15 minutes
-- Usage: Homepage, site detail pages, AI context
+- ETai: no backend — returns empty
 
-**Historical Data:**
+**Historical Data (ETai report):**
 
-- Source: `apps/web/constants/neihu-charging-station-data.json`
-- Format: Hourly power snapshots `HourlyPowerRecord[]`
-- Usage: Report API (`/api/neihu/report`), AI historical queries
+- Source: `constants/ETai_2021_2025.json` (2.1 MB, server-side only)
+- Usage: `/api/etai/report` → `generateReport()`
 
 ---
 
 ## Database Schema
 
-### Core Models
-
-**User** (with relations):
+**User** (only model in `apps/frontend/prisma/schema.prisma`):
 
 ```prisma
 model User {
@@ -360,64 +348,13 @@ model User {
   password  String   // bcrypt hashed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  chatSessions ChatSession[]
-  usageMetrics UsageMetric[]
 }
 ```
-
-**ChatSession** (AI conversations):
-
-```prisma
-model ChatSession {
-  id            String    @id @default(cuid())
-  userId        String
-  title         String    @default("新對話")
-  lastMessageAt DateTime?
-  createdAt     DateTime  @default(now())
-
-  user     User      @relation(...)
-  messages Message[]
-}
-```
-
-**Message** (chat messages with chart support):
-
-```prisma
-model Message {
-  id          String             @id @default(cuid())
-  sessionId   String
-  role        MessageRole        // user | assistant
-  content     String             @db.Text
-  contentType MessageContentType @default(text) // text | chart | mixed
-  chartConfig Json?              // Stores chart configuration for AI responses
-  createdAt   DateTime           @default(now())
-
-  session ChatSession @relation(...)
-}
-```
-
-**UsageMetric** (token tracking):
-
-```prisma
-model UsageMetric {
-  id               String   @id @default(cuid())
-  userId           String
-  promptTokens     Int
-  completionTokens Int
-  totalTokens      Int
-  createdAt        DateTime @default(now())
-
-  user User @relation(...)
-}
-```
-
-**Prisma Configuration:**
 
 - Client output: `lib/generated/prisma/`
 - Adapter: PrismaPg with PostgreSQL connection pool
 - Connection: `DATABASE_URL` environment variable
-- Platforms: native, darwin-arm64, debian-openssl-3.0.x
+- **Do NOT run `prisma migrate` from `apps/frontend`** — schema is minimal (User only)
 
 ---
 
@@ -425,43 +362,45 @@ model UsageMetric {
 
 ### Auth Flow
 
-1. **Sign In/Up**: POST to `/api/auth/signin` or `/api/auth/signup`
-   - Validates against `ALLOWED_EMAILS` whitelist in `constants/auth-constants.ts`
-   - Hashes passwords with bcrypt
-   - Returns JWT token set as HTTP-only cookie (`auth-token`)
+1. **Sign In**: `POST /api/auth/signin` — whitelist check → bcrypt → JWT (7d) cookie
+2. **Sign Up**: `POST /api/auth/signup` — whitelist check → bcrypt hash → create user
+3. **Auth Check**: `GET /api/auth/me` — verify JWT → return user + role
+4. **Sign Out**: `POST /api/auth/signout` — clear cookie
+5. **Change Password**: `PUT /api/auth/update-password`
+6. **Delete Account**: `DELETE /api/auth/delete-account`
+7. **Protected Routes**: `useAuthGuard()` hook — redirects to `/auth/signin`
 
-2. **Auth Check**: GET `/api/auth/me`
-   - Validates JWT and returns user info (including role)
+### RBAC Roles (`constants/auth-constants.ts`)
 
-3. **Sign Out**: POST `/api/auth/signout`
-   - Clears JWT cookie
+| Role | Access |
+|------|--------|
+| `admin` | All pages, all sites |
+| `worker` | Controller page + permitted sites only |
+| `viewer` | Permitted sites only (read-only, no Controller) |
 
-4. **Change Password**: PUT `/api/auth/update-password`
-   - Requires authentication
+- Roles mapped by email in `USER_ROLES`
+- `sitePermissions: SiteId[]` restricts site access per user
+- Default for unknown emails: `viewer` with no site permissions
 
-5. **Protected Routes**: Use `useAuthGuard()` hook
-   - Redirects unauthenticated users to `/auth/signin`
-   - Supports `allowedRoles` parameter for role-based page access
+---
 
-### Role-Based Access Control (RBAC)
+## Environment Variables
 
-**Roles** (defined in [`constants/auth-constants.ts`](apps/web/constants/auth-constants.ts)):
+Required in `apps/frontend/.env`:
 
-| Role | Home Page | Site Pages | Engineering Page |
-|------|-----------|------------|-----------------|
-| `admin` | ✅ | All sites | ✅ |
-| `worker` | ❌ | Permitted sites only | ❌ |
-| `viewer` | ❌ | Permitted sites only | ❌ |
+```bash
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/vpp_db"
 
-- Roles are mapped by email in `USER_ROLES` record
-- Each user can have `sitePermissions: SiteId[]` to restrict site access
-- Users not in `USER_ROLES` default to `viewer` with no site permissions
-- `getUserRoleConfig(email)` returns the role config for a given email
+# JWT Secret (use strong random value)
+JWT_SECRET="your-super-secret-jwt-key-here"
 
-**Middleware:** [`apps/web/middleware/auth.ts`](apps/web/middleware/auth.ts)
+# External API (Neihu real-time data backend)
+NEXT_PUBLIC_API_BASE_URL="https://fortune-ess.com.tw/neihu/data"
 
-- `getCurrentUser()` - Get current user from JWT
-- `requireAuth()` - Throw error if not authenticated
+# Node Environment
+NODE_ENV="development" # or "production"
+```
 
 ---
 
@@ -472,117 +411,45 @@ model UsageMetric {
 - **Files**: kebab-case (`battery-soc-chart.tsx`)
 - **Components**: PascalCase (`BatterySOCChart`)
 - **Functions**: camelCase (`calculateElectricityCost`)
-- **Constants**: UPPER_SNAKE_CASE (`SUMMER_PEAK_RATE`)
+- **Constants**: UPPER_SNAKE_CASE (`CHART_COLORS`)
 - **Types**: PascalCase with suffix (`TelemetryData`, `SiteConfig`)
-- **Test files**: `*.test.ts` or `*.test.tsx`
+
+### Charts
+
+- All charts use **ECharts** via `echarts-for-react`
+- Use helpers from `utils/echarts-helpers.ts` for consistent axis/tooltip/grid styling
+- Use `CHART_COLORS` from `constants/chart-colors.ts` — do not hardcode hex values
 
 ### Component Organization
 
 ```
 components/
-├── ai-chat/       # AI chat interface & chart rendering
-├── auth/          # Auth forms (signin, signup)
-├── history/       # Historical data charts (power-demand, peak-demand)
-├── home/          # Home page components (map, sidebar, summary)
-├── layouts/       # Layout components (navbar, sidebar)
-├── providers/     # Context providers
-├── report/        # Report page components
-├── site/          # Site detail components (energy flow, power-demand-chart)
-└── ui/            # shadcn/ui primitives (Radix UI)
+├── home/        # Dashboard: map, finance card, stats
+├── site/        # Site detail: SOC chart, energy flow, power demand
+├── history/     # Historical: power demand chart, summary, table
+├── report/      # Report: trend chart, cumulative savings, detail table
+├── controller/  # 維運操作面板: status panels, control buttons, confirm modal
+├── notify/      # Notification list + item card
+├── auth/        # Sign in / sign up forms
+├── layout/      # Sidebar (role-aware nav)
+├── providers/   # AuthProvider + NotificationProvider
+└── ui/          # shadcn/ui primitives (@base-ui/react)
 ```
 
-- Chart components use Recharts with custom styling
-- Server/Client components properly separated (use `"use client"` when needed)
-- Import aliases: `@/` maps to `apps/web/` root
+- Import alias: `@/` maps to `apps/frontend/` root
+- Use `"use client"` directive only where needed (hooks, event handlers)
 
-### Page Structure
+### Adding a New Site
 
-- **Home Page** ([`app/page.tsx`](apps/web/app/page.tsx)): Multi-site overview with Mapbox GL map, site sidebar, and summary cards (admin only)
-- **Site Detail** ([`app/sites/[siteId]/page.tsx`](apps/web/app/sites/[siteId]/page.tsx)): Single-site monitoring with real-time charts and energy flow diagrams
-- **History** ([`app/sites/[siteId]/history/page.tsx`](apps/web/app/sites/[siteId]/history/page.tsx)): Historical data analysis with power demand charts
-- **Report** ([`app/sites/[siteId]/report/page.tsx`](apps/web/app/sites/[siteId]/report/page.tsx)): Monthly/annual reports with BESS cost comparison
-- **Engineering** ([`app/sites/[siteId]/engineering/page.tsx`](apps/web/app/sites/[siteId]/engineering/page.tsx)): Engineering view (admin/worker only)
-- **Profile** ([`app/profile/page.tsx`](apps/web/app/profile/page.tsx)): User profile and password management
-- **Auth** ([`app/auth/signin/`](apps/web/app/auth/signin/), [`app/auth/signup/`](apps/web/app/auth/signup/)): Authentication pages
-
-### Adding New Features
-
-**New Site Configuration:**
-
-1. Add `SiteId` type in `types/data-type.ts`
-2. Add site config in `config/site-configs.ts`
-3. Register in `SITE_CONFIGS` map
-4. Update `stores/data-store.ts` initial state
-
-**New AI Feature:**
-
-1. Create service in `services/ai/`
-2. Add prompt in `lib/ai/prompts.ts`
-3. Integrate in `/api/ai/chat/route.ts`
-4. Create test in `scripts/tests/integration/`
-
----
-
-## Environment Variables
-
-Required in `apps/web/.env`:
-
-```bash
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/vpp_db"
-
-# JWT Secret (use strong random value)
-JWT_SECRET="your-super-secret-jwt-key-here"
-
-# Mapbox (for maps)
-NEXT_PUBLIC_MAPBOX_TOKEN="pk.your-mapbox-token"
-
-# Anthropic API (for AI chat)
-ANTHROPIC_API_KEY="sk-ant-your-api-key"
-
-# External API
-NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:3003/neihu/data"
-
-# Node Environment
-NODE_ENV="development" # or "production"
-```
-
----
-
-## Testing Strategy
-
-### Test Structure
-
-```
-scripts/tests/
-├── integration/       # API, BESS, data flow tests
-├── unit/             # Pure function tests (bess-unified)
-├── e2e/              # End-to-end user flow tests
-└── type-checking/    # TypeScript type checking
-```
-
-### Key Test Cases
-
-1. **BESS simulation accuracy** - Verify charge/discharge logic, SOC calculation
-2. **Electricity cost accuracy** - Confirm peak/off-peak rates, savings rate
-3. **Cross-day SOC persistence** - Ensure Friday→Monday SOC correctly maintained
-4. **Weekend/holiday disable** - Verify no charge/discharge on non-working days
-5. **API integration** - Test external API data fetching and processing
-
-### Running Tests
-
-```bash
-cd apps/web
-
-# Most comprehensive BESS test
-npx tsx scripts/tests/integration/electricity-cost-comparison.test.ts
-
-# Cross-day SOC test
-npx tsx scripts/tests/integration/cross-day-soc.test.ts
-
-# All tests
-pnpm test
-```
+1. Add `SiteId` to `types/data-type.ts` and `components/home/types.ts`
+2. Add site config to `config/site-configs.ts` and register in `getSiteConfig()`
+3. Add coordinates + metadata to `components/home/site-map.tsx` `SITES` array
+4. Add initial state for the new site in `stores/data-store.ts`
+5. Add API route under `app/api/<sitename>/report/`
+6. Update `components/home/finance-card.tsx` route selector
+7. Update `hooks/use-live-stats.ts` if the site has a real-time backend
+8. Add notification rules for the new site in `constants/notification-rules.ts` + `utils/notification-engine.ts`
+9. Add mock controller state for the new site in `utils/mock-controller-data.ts` (`createInitialControllerState`)
 
 ---
 
@@ -594,22 +461,8 @@ pnpm test
 - `dev`: No cache, persistent task
 - `lint` / `lint:fix`: Depends on `^lint` / `^lint:fix`
 - `check-types`: Depends on `^check-types`
-- `test`: Depends on `^build`, env: `DATABASE_URL`, `JWT_SECRET`, `TEST_BASE_URL`
-- `test:unit`: No dependencies
-- `test:integration`: Depends on `^build`, env: `DATABASE_URL`, `JWT_SECRET`
 
-**Environment Variables:**
-
-- `DATABASE_URL`, `NODE_ENV`, `NEXT_RUNTIME` passed to build tasks via `env` field
-
----
-
-## Code Quality Standards
-
-- **TypeScript**: Strict mode enabled
-- **ESLint**: Zero warnings tolerance (`--max-warnings 0`)
-- **Prettier**: Consistent code formatting
-- **Type Checking**: `tsc --noEmit` + Next.js `typegen`
+**Environment Variables passed to build:** `DATABASE_URL`, `NODE_ENV`, `NEXT_RUNTIME`
 
 ---
 
@@ -620,30 +473,15 @@ pnpm test
 | `/api/auth/signin` | POST | Sign in |
 | `/api/auth/signup` | POST | Sign up |
 | `/api/auth/signout` | POST | Sign out |
-| `/api/auth/me` | GET | Get current user |
+| `/api/auth/me` | GET | Get current user + role |
 | `/api/auth/update-password` | PUT | Change password |
-| `/api/ai/chat` | POST | AI chat |
-| `/api/ai/sessions` | GET/POST | List/create chat sessions |
-| `/api/ai/sessions/[id]` | GET/DELETE | Get/delete chat session |
-| `/api/neihu/data` | GET | Neihu real-time data |
-| `/api/neihu/data-json` | GET | Neihu JSON data |
-| `/api/neihu/daily/[dateStr]` | GET | Neihu daily data by date |
-| `/api/neihu/report` | GET | Neihu report |
-| `/api/etai/report` | GET | ETai report (with DR) |
-| `/api/history/[siteId]` | GET | Historical data by site |
+| `/api/auth/delete-account` | DELETE | Delete account |
+| `/api/neihu/data` | GET | Neihu real-time data (CORS proxy) |
+| `/api/neihu/report` | GET | Neihu BESS financial report |
+| `/api/etai/report` | GET | ETai BESS financial report (with DR) |
+| `/api/history/[siteId]` | GET | Historical aggregated data by site |
 
 ---
 
-## Additional Resources
-
-- **Main README**: [`README.md`](README.md) - Complete project overview
-- **Documentation Hub**: [`apps/web/docs/README.md`](apps/web/docs/README.md) - All technical docs
-- **Project Structure**: [`apps/web/docs/PROJECT_STRUCTURE.md`](apps/web/docs/PROJECT_STRUCTURE.md) - Architecture details
-- **BESS Algorithms**: [`apps/web/docs/REPORT_ALGORITHM_SUMMARY.md`](apps/web/docs/REPORT_ALGORITHM_SUMMARY.md) - Core algorithms
-- **AI Module**: [`apps/web/docs/AI_MODULE_STRUCTURE.md`](apps/web/docs/AI_MODULE_STRUCTURE.md) - AI design
-- **Test Results**: [`apps/web/docs/TEST-RESULTS.md`](apps/web/docs/TEST-RESULTS.md) - Test records
-
----
-
-**Last Updated:** 2026-05-22
+**Last Updated:** 2026-06-03 (added Controller 維運操作面板)
 **Maintained by:** Fortune ESS Development Team
