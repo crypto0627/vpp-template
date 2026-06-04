@@ -287,11 +287,6 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] animate-in fade-in duration-200"
-        onClick={onClose}
-      />
-
       <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-5xl lg:w-[70%] h-[90%] lg:h-[80%] z-[101] animate-in fade-in zoom-in-95 duration-300">
         <div
           className="flex h-full bg-gradient-to-br from-[#1A1915] via-[#262420] to-[#1A1915] rounded-xl shadow-2xl overflow-hidden border border-[#DA7756]/30"
