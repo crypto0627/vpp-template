@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { ALLOWED_EMAILS, getUserRoleConfig } from "@/constants/auth-constants";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE, JWT_EXPIRES_IN, authCookieOptions, getJwtSecret } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +29,12 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({ data: { email, password: hashedPassword } });
 
     const roleConfig = getUserRoleConfig(user.email);
-    return NextResponse.json({
+
+    const token = jwt.sign({ userId: user.id }, getJwtSecret(), {
+      expiresIn: JWT_EXPIRES_IN,
+    });
+
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -35,6 +42,10 @@ export async function POST(req: NextRequest) {
         sitePermissions: roleConfig.sitePermissions,
       },
     });
+
+    response.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(AUTH_COOKIE_MAX_AGE));
+
+    return response;
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json({ error: "Failed to create account" }, { status: 500 });

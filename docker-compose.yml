@@ -1,27 +1,4 @@
-version: '3.9'
-
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: vpp-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-vpp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpp_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-vpp_db}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - vpp-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpp} -d ${POSTGRES_DB:-vpp_db}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Next.js Frontend Application
   frontend:
     build:
@@ -29,26 +6,25 @@ services:
       dockerfile: ./apps/frontend/Dockerfile
     container_name: vpp-frontend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # Single source of truth — the same file `pnpm dev` and the build use.
+    # JWT_SECRET and ANTHROPIC_API_KEY come straight from here, so they can
+    # never drift between dev and Docker again.
+    env_file:
+      - ./apps/frontend/.env
     environment:
-      # Database (connects to the postgres service above)
-      DATABASE_URL: postgresql://${POSTGRES_USER:-vpp}:${POSTGRES_PASSWORD:-vpp_secret}@postgres:5432/${POSTGRES_DB:-vpp_db}
-
-      # JWT Secret (CHANGE THIS IN PRODUCTION!)
-      JWT_SECRET: ${JWT_SECRET}
-
-      # External API (upstream data source — use host.docker.internal to reach neihu-data backend on same machine)
+      # Container-specific overrides (these take precedence over env_file).
+      # Inside the container, reach host services via host.docker.internal.
+      DATABASE_URL: postgresql://admin:password@host.docker.internal:5432/auth_db
       NEXT_PUBLIC_API_BASE_URL: http://host.docker.internal:3003/data
-
-      # Self URL (for server-side internal API calls)
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-
-      # Node Environment
+      NEXT_PUBLIC_SITE_URL: http://localhost:3001
       NODE_ENV: production
+      # Served over plain HTTP on localhost — must NOT mark the auth cookie
+      # Secure, or the browser drops it and auth fails. Set to true behind HTTPS.
+      COOKIE_SECURE: "false"
+      # Port the Next.js server listens on
+      PORT: 3001
     ports:
-      - "3000:3000"
+      - "3001:3001"
     networks:
       - vpp-network
     # Allow connecting to host services (for macOS/Windows)
@@ -56,10 +32,6 @@ services:
       - "host.docker.internal:host-gateway"
     # Start the application
     command: node apps/frontend/server.js
-
-volumes:
-  postgres_data:
-    driver: local
 
 networks:
   vpp-network:

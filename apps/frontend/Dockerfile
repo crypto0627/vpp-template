@@ -80,9 +80,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/constants ./apps/fr
 
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 3001
 
-ENV PORT=3000
+ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
 

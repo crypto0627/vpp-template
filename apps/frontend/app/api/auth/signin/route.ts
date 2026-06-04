@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { ALLOWED_EMAILS, getUserRoleConfig } from "@/constants/auth-constants";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE, JWT_EXPIRES_IN, authCookieOptions, getJwtSecret } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,11 +33,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email或密碼錯誤" }, { status: 401 });
     }
 
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || "fallback-secret",
-      { expiresIn: "7d" },
-    );
+    const token = jwt.sign({ userId: user.id }, getJwtSecret(), {
+      expiresIn: JWT_EXPIRES_IN,
+    });
 
     const roleConfig = getUserRoleConfig(user.email);
     const response = NextResponse.json({
@@ -48,12 +47,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set("auth-token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(AUTH_COOKIE_MAX_AGE));
 
     return response;
   } catch (error) {

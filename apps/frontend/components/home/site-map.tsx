@@ -38,7 +38,7 @@ interface HomeMapProps {
   onSiteSelect: (siteId: SiteId) => void;
 }
 
-export default function HomeMap({ onSiteSelect }: HomeMapProps) {
+export default function wHomeMap({ onSiteSelect }: HomeMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const onSiteSelectRef = useRef(onSiteSelect);
