@@ -24,7 +24,19 @@ function clampToViewport({ x, y }: Position): Position {
 
 export function AiChatButton() {
   const [isOpen, setIsOpen] = useState(false);
-  const [pos, setPos] = useState<Position | null>(null);
+  // ssr:false (loaded via AdminAiChatButton), so window is available here.
+  const [pos, setPos] = useState<Position>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return clampToViewport(JSON.parse(saved) as Position);
+    } catch {
+      // ignore malformed storage
+    }
+    return clampToViewport({
+      x: window.innerWidth - BUTTON_SIZE - MARGIN,
+      y: window.innerHeight - BUTTON_SIZE - MARGIN,
+    });
+  });
   const dragState = useRef<{
     offsetX: number;
     offsetY: number;
@@ -33,37 +45,15 @@ export function AiChatButton() {
     moved: boolean;
   } | null>(null);
 
-  // Initialise from localStorage, falling back to the bottom-right corner.
-  useEffect(() => {
-    const defaultPos = clampToViewport({
-      x: window.innerWidth - BUTTON_SIZE - MARGIN,
-      y: window.innerHeight - BUTTON_SIZE - MARGIN,
-    });
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Position;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setPos(clampToViewport(parsed));
-        return;
-      }
-    } catch {
-      // ignore malformed storage
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPos(defaultPos);
-  }, []);
-
   // Re-clamp when the window resizes so the button never strands off-screen.
   useEffect(() => {
-    const onResize = () => setPos((prev) => (prev ? clampToViewport(prev) : prev));
+    const onResize = () => setPos((prev) => clampToViewport(prev));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!pos) return;
       dragState.current = {
         offsetX: e.clientX - pos.x,
         offsetY: e.clientY - pos.y,
@@ -94,12 +84,10 @@ export function AiChatButton() {
     if (d.moved) {
       // End of a drag — persist the resting position.
       setPos((prev) => {
-        if (prev) {
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(prev));
-          } catch {
-            // ignore storage failures
-          }
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(prev));
+        } catch {
+          // ignore storage failures
         }
         return prev;
       });
@@ -108,8 +96,6 @@ export function AiChatButton() {
       setIsOpen(true);
     }
   }, []);
-
-  if (!pos) return null;
 
   return (
     <>
