@@ -1,40 +1,61 @@
 version: '3.9'
 
 services:
-  # Next.js Web Application
-  web:
-    build:
-      context: .
-      dockerfile: ./apps/web/Dockerfile
-    container_name: vpp-web
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: vpp-postgres
     restart: unless-stopped
     environment:
-      # Database (use host.docker.internal to connect to host's PostgreSQL)
-      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_USER: ${POSTGRES_USER:-vpp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpp_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-vpp_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - vpp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vpp} -d ${POSTGRES_DB:-vpp_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Frontend Application
+  frontend:
+    build:
+      context: .
+      dockerfile: ./apps/frontend/Dockerfile
+    container_name: vpp-frontend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database (connects to the postgres service above)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vpp}:${POSTGRES_PASSWORD:-vpp_secret}@postgres:5432/${POSTGRES_DB:-vpp_db}
 
       # JWT Secret (CHANGE THIS IN PRODUCTION!)
       JWT_SECRET: ${JWT_SECRET}
-
-      # Anthropic API (required for AI chat)
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 
       # External API (upstream data source — use host.docker.internal to reach neihu-data backend on same machine)
       NEXT_PUBLIC_API_BASE_URL: http://host.docker.internal:3003/data
 
       # Self URL (for server-side internal API calls)
-      NEXT_PUBLIC_SITE_URL: http://localhost:3001
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
       # Node Environment
       NODE_ENV: production
     ports:
-      - "3001:3001"
+      - "3000:3000"
     networks:
       - vpp-network
     # Allow connecting to host services (for macOS/Windows)
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Start the application (migrations run separately)
-    command: node apps/web/server.js
+    # Start the application
+    command: node apps/frontend/server.js
 
 volumes:
   postgres_data:

@@ -38,4 +38,4 @@ jobs:
         run: pnpm check-types
 
       - name: Build web app
-        run: pnpm turbo build --filter=web
+        run: pnpm turbo build --filter=frontend
