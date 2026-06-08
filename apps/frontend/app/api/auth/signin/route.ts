@@ -5,6 +5,9 @@ import jwt from "jsonwebtoken";
 import { ALLOWED_EMAILS, getUserRoleConfig } from "@/constants/auth-constants";
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE, JWT_EXPIRES_IN, authCookieOptions, getJwtSecret } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
     });
 
     response.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(AUTH_COOKIE_MAX_AGE));
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
 
     return response;
   } catch (error) {

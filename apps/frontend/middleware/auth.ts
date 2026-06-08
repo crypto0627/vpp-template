@@ -1,17 +1,18 @@
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
+import { AUTH_COOKIE_NAME, getJwtSecret } from "@/lib/auth";
 import type { User } from "@/lib/generated/prisma";
-
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth-token")?.value;
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
     if (!token) return null;
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    // Single source of truth for the secret — never a hardcoded fallback,
+    // which would silently accept forged tokens if JWT_SECRET were unset.
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: string };
     return await prisma.user.findUnique({ where: { id: decoded.userId } });
   } catch {
     return null;

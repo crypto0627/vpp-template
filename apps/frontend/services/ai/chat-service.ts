@@ -8,8 +8,9 @@ export class ChatService {
     firstMessage: string,
   ): Promise<ChatSession & { messages: Message[] }> {
     if (sessionId) {
-      const session = await prisma.chatSession.findUnique({
-        where: { id: sessionId },
+      // Scope by userId so a caller can only resume their OWN session.
+      const session = await prisma.chatSession.findFirst({
+        where: { id: sessionId, userId },
         include: { messages: { orderBy: { createdAt: "asc" } } },
       });
       if (session) return session;
@@ -20,8 +21,10 @@ export class ChatService {
         ? firstMessage.slice(0, 30) + "..."
         : firstMessage;
 
+    // Let Prisma generate the id (cuid). Never trust a client-supplied id —
+    // doing so produced guessable, sequential ids (Date.now()).
     return await prisma.chatSession.create({
-      data: { id: sessionId, userId, title },
+      data: { userId, title },
       include: { messages: true },
     });
   }
@@ -64,15 +67,22 @@ export class ChatService {
     });
   }
 
-  async getSessionMessages(sessionId: string): Promise<Message[]> {
+  async getSessionMessages(sessionId: string, userId: string): Promise<Message[]> {
+    // The nested `session: { userId }` filter ensures messages are only
+    // returned when the session belongs to the requesting user.
     return await prisma.message.findMany({
-      where: { sessionId },
+      where: { sessionId, session: { userId } },
       orderBy: { createdAt: "asc" },
     });
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
-    await prisma.chatSession.delete({ where: { id: sessionId } });
+  /** Deletes the session only if it belongs to `userId`. Returns true when a
+   *  row was actually deleted (false → not found or not owned by the caller). */
+  async deleteSession(sessionId: string, userId: string): Promise<boolean> {
+    const result = await prisma.chatSession.deleteMany({
+      where: { id: sessionId, userId },
+    });
+    return result.count > 0;
   }
 }
 

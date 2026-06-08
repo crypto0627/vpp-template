@@ -39,9 +39,6 @@ export function SignInForm() {
       setTimeout(() => router.push("/"), 1000);
     } else {
       setServerError(result.error || "登入失敗");
-      if (result.error === "Invalid credentials, cannot find user") {
-        setTimeout(() => router.push("/auth/signup"), 2500);
-      }
     }
   };
 

@@ -35,15 +35,19 @@ const SITES: {
 ];
 
 interface HomeMapProps {
+  allowedSites: SiteId[];
   onSiteSelect: (siteId: SiteId) => void;
 }
 
-export default function HomeMap({ onSiteSelect }: HomeMapProps) {
+export default function HomeMap({ allowedSites, onSiteSelect }: HomeMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const onSiteSelectRef = useRef(onSiteSelect);
   // eslint-disable-next-line react-hooks/refs
   onSiteSelectRef.current = onSiteSelect;
+  const allowedSitesRef = useRef(allowedSites);
+  // eslint-disable-next-line react-hooks/refs
+  allowedSitesRef.current = allowedSites;
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -73,7 +77,7 @@ export default function HomeMap({ onSiteSelect }: HomeMapProps) {
         }
       }
 
-      SITES.forEach((site) => {
+      SITES.filter((site) => allowedSitesRef.current.includes(site.id)).forEach((site) => {
         const popup = new maplibregl.Popup({
           anchor: "bottom",
           offset: 25,

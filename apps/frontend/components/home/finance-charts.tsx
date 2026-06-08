@@ -11,6 +11,10 @@ export interface DailyChartItem {
   savings: number;
   drCost?: number;
   sRegRevenue?: number;
+  peakKWh?: number;
+  offPeakKWh?: number;
+  chargedKWh?: number;
+  dischargedKWh?: number;
 }
 
 // ── Shared chart helpers ──────────────────────────────────────────────────────
@@ -80,7 +84,7 @@ export function NoDataMsg() {
   );
 }
 
-// ── Chart 1: 無儲能 vs 有儲能電費 ────────────────────────────────────────────
+// ── Chart 1: 電費 + 用電量（雙 Y 軸）─────────────────────────────────────────
 export function CostComparisonChart({ dailyReport, height = 190 }: { dailyReport: DailyChartItem[]; height?: number }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -90,19 +94,70 @@ export function CostComparisonChart({ dailyReport, height = 190 }: { dailyReport
     const chart = echarts.init(el, null, { renderer: "svg" });
     chart.setOption({
       backgroundColor: "transparent",
-      tooltip: { trigger: "axis", ...TOOLTIP_STYLE, formatter: tooltipFmt },
-      grid: { top: 8, bottom: dailyReport.length > 14 ? 40 : 24, left: 0, right: 4, containLabel: true },
+      tooltip: {
+        trigger: "axis",
+        ...TOOLTIP_STYLE,
+        formatter: (params: TooltipParam | TooltipParam[]) => {
+          const parts = Array.isArray(params) ? params : [params];
+          const date = String(parts[0]?.axisValue ?? "");
+          let html = `<div style="margin-bottom:4px;font-size:10px;color:rgba(255,255,255,0.5)">${date}</div>`;
+          parts.forEach((p) => {
+            const val = typeof p.value === "number" ? p.value : 0;
+            const text = p.seriesName === "用電量"
+              ? `${Math.round(val).toLocaleString("zh-TW")} kWh`
+              : `NT$${Math.round(val).toLocaleString("zh-TW")}`;
+            html += `<div style="display:flex;align-items:center;gap:6px">${p.marker}<span>${p.seriesName}</span><b>${text}</b></div>`;
+          });
+          return html;
+        },
+      },
+      legend: {
+        data: ["電費", "用電量"],
+        top: 0,
+        right: 0,
+        icon: "roundRect",
+        itemWidth: 10,
+        itemHeight: 8,
+        itemGap: 10,
+        textStyle: { color: "rgba(255,255,255,0.5)", fontSize: 9 },
+      },
+      grid: { top: 22, bottom: dailyReport.length > 14 ? 40 : 24, left: 0, right: 0, containLabel: true },
       xAxis: buildXAxis(dailyReport.map((d) => d.date), dailyReport.length),
-      yAxis: buildYAxis(),
+      yAxis: [
+        buildYAxis(),
+        {
+          type: "value" as const,
+          position: "right" as const,
+          axisLabel: { ...AXIS_LABEL, formatter: (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}K` : `${Math.round(v)}`) },
+          splitLine: { show: false },
+          axisLine: { show: false },
+        },
+      ],
       series: [
         {
-          name: "有儲能費用",
+          name: "用電量",
           type: "line",
+          yAxisIndex: 1,
+          // 有儲能後實際購電量(市電)= (尖峰−放電) + (離峰+充電),與「電費」線口徑一致
+          data: dailyReport.map((d) =>
+            Math.max(0, (d.peakKWh ?? 0) - (d.dischargedKWh ?? 0) + (d.offPeakKWh ?? 0) + (d.chargedKWh ?? 0)),
+          ),
+          smooth: true,
+          symbol: "circle",
+          lineStyle: { color: "#BEA98F", width: 2 },
+          itemStyle: { color: "#BEA98F", borderColor: "#fff", borderWidth: 1.5 },
+          z: 2,
+        },
+        {
+          name: "電費",
+          type: "line",
+          yAxisIndex: 0,
           data: dailyReport.map((d) => d.withBESS),
           smooth: true,
           symbol: "circle",
           lineStyle: { color: "#7D9B7E", width: 2 },
           itemStyle: { color: "#7D9B7E", borderColor: "#fff", borderWidth: 1.5 },
+          z: 3,
         },
       ],
     });
@@ -111,7 +166,7 @@ export function CostComparisonChart({ dailyReport, height = 190 }: { dailyReport
     return () => { window.removeEventListener("resize", onResize); chart.dispose(); };
   }, [dailyReport]);
 
-  return <ChartBlock title="有儲能電費趨勢"><div ref={ref} style={{ height }} /></ChartBlock>;
+  return <ChartBlock title="電費趨勢"><div ref={ref} style={{ height }} /></ChartBlock>;
 }
 
 // ── Chart 2: 需量反應收益（DR）────────────────────────────────────────────────

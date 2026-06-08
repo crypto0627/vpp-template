@@ -18,27 +18,22 @@ export function ReportSummaryCards({
   const showDR = !!config.DR?.ENABLED;
   const showSReg = !!config.SREG?.ENABLED;
 
+  // 尖離峰收益 = (尖峰放電量 × 尖峰電價) − (離峰充電量 × 離峰電價)
+  const peakDischargeRevenue = summary.withoutPeakCost - summary.withPeakCost;
+  const offPeakChargeCost = summary.withOffpeakCost - summary.withoutOffpeakCost;
+  const peakArbitrage = peakDischargeRevenue - offPeakChargeCost;
+
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-5 gap-4">
       <ReportSummaryCard
         label="總用電量"
         value={`${summary.totalKWh.toLocaleString("zh-TW", { maximumFractionDigits: 1 })} kWh`}
         sub={`${summary.totalHours} 小時數據`}
       />
       <ReportSummaryCard
-        label="無儲能花費"
-        value={`$${ntd(summary.costWithoutBESS)}`}
-        sub="NT$ 流動電費"
-      />
-      <ReportSummaryCard
-        label="有儲能花費"
-        value={`$${ntd(summary.costWithBESS)}`}
-        sub="NT$ 流動電費"
-      />
-      <ReportSummaryCard
-        label="裝儲能省了"
-        value={`$${ntd(summary.savings)}`}
-        sub="NT$ 節省金額"
+        label="尖離峰收益"
+        value={`$${ntd(peakArbitrage)}`}
+        sub="尖峰放電 − 離峰充電"
         highlight
       />
       {showDR && (

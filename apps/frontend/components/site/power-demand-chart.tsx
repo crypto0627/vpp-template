@@ -340,15 +340,6 @@ export function PowerDemandChart() {
         },
         label: { show: false },
       },
-      {
-        yAxis: siteConfig.PCS_CAPACITY_KW,
-        lineStyle: {
-          color: CHART_COLORS.pcsCapacity,
-          width: 1,
-          type: "dashed",
-        },
-        label: { show: false },
-      },
     ],
   };
 
@@ -417,15 +408,6 @@ export function PowerDemandChart() {
               ></div>
               <span className="text-white/50 text-sm sm:text-base">
                 契約容量: {contractLimit} kW
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-6 h-0 sm:w-7 border-t-2 border-dashed shrink-0"
-                style={{ borderColor: CHART_COLORS.pcsCapacity }}
-              ></div>
-              <span className="text-white/50 text-sm sm:text-base">
-                最大充放電量: {siteConfig.PCS_CAPACITY_KW} kW
               </span>
             </div>
           </div>

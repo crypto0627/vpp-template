@@ -12,6 +12,8 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { SiteId } from "@/types/data-type";
 import { getSiteConfig } from "@/config/site-configs";
 import { HourlyPowerRecord } from "@/utils/report-generator";
+import { SiteNav } from "@/components/site/site-nav";
+import { DateRangeSearch } from "@/components/ui/date-range-search";
 
 const Placeholder = () => <div className="h-48 bg-[#2A1A0F] rounded-xl animate-pulse" />;
 const HistorySummaryCards = dynamic(() => import("@/components/history/history-summary-cards").then((m) => m.HistorySummaryCards), { loading: Placeholder });
@@ -102,10 +104,9 @@ export default function HistoryPage() {
             <span className="text-white/20">/</span>
             <h1 className="text-lg font-bold">歷史數據查詢</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-white/40">{siteHistoryConfig?.title || siteId}</span>
-            <Link href={`/sites/${siteId}/report`} className="px-3 py-1.5 text-xs bg-[#3A2415] text-white/70 border border-[#E8883E]/20 rounded-lg hover:bg-[#4A3020]">財報</Link>
-            <Link href="/" className="px-3 py-1.5 text-xs bg-[#3A2415] text-white/50 border border-[#3A2415] rounded-lg hover:bg-[#4A3020]">首頁</Link>
+            <SiteNav siteId={siteId} />
           </div>
         </div>
 
@@ -118,37 +119,17 @@ export default function HistoryPage() {
             {/* Date controls */}
             <Card>
               <CardContent className="pt-4 pb-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <input
-                    type="date"
-                    value={startDate}
-                    min={siteHistoryConfig.minDate}
-                    max={siteHistoryConfig.maxDate}
-                    onChange={(e) => { setStartDate(e.target.value); if (endDate < e.target.value) setEndDate(e.target.value); }}
-                    onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                    style={{ colorScheme: "dark" }}
-                    className="cursor-pointer border border-[#3A2415] rounded-lg px-3 py-2 text-sm bg-[#1E1208] text-white focus:outline-none focus:ring-1 focus:ring-[#E8883E]"
-                  />
-                  <span className="text-white/40">～</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    max={siteHistoryConfig.maxDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                    style={{ colorScheme: "dark" }}
-                    className="cursor-pointer border border-[#3A2415] rounded-lg px-3 py-2 text-sm bg-[#1E1208] text-white focus:outline-none focus:ring-1 focus:ring-[#E8883E]"
-                  />
-                  <button
-                    onClick={fetchHistory}
-                    disabled={!startDate || !endDate || loading}
-                    className="px-5 py-2 text-sm font-medium bg-[#E8883E] text-white rounded-lg hover:bg-[#d4762e] transition-colors disabled:opacity-50"
-                  >
-                    {loading ? "查詢中…" : "查詢"}
-                  </button>
-                  <span className="text-xs text-white/30 ml-auto hidden sm:inline">可查詢：{siteHistoryConfig.minDate} ～ {siteHistoryConfig.maxDate}</span>
-                </div>
+                <DateRangeSearch
+                  startDate={startDate}
+                  endDate={endDate}
+                  min={siteHistoryConfig.minDate}
+                  max={siteHistoryConfig.maxDate}
+                  loading={loading}
+                  hint={`可查詢：${siteHistoryConfig.minDate} ～ ${siteHistoryConfig.maxDate}`}
+                  onStartChange={(v) => { setStartDate(v); if (endDate < v) setEndDate(v); }}
+                  onEndChange={(v) => setEndDate(v)}
+                  onSearch={fetchHistory}
+                />
               </CardContent>
             </Card>
 

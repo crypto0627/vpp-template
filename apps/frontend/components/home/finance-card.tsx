@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, TrendingDown, TrendingUp, Zap, DollarSign } from "lucide-react";
+import { Zap, DollarSign } from "lucide-react";
 import type { SiteId } from "./types";
+import { DateRangeSearch } from "@/components/ui/date-range-search";
 import {
   CostComparisonChart,
   DRRevenueChart,
@@ -12,10 +13,11 @@ import {
 } from "./finance-charts";
 
 interface ReportSummary {
-  costWithoutBESS: number;
   costWithBESS: number;
-  savings: number;
-  savingsRate: number;
+  withoutPeakCost: number;
+  withPeakCost: number;
+  withoutOffpeakCost: number;
+  withOffpeakCost: number;
   drDays: number;
   drTotalCost: number;
   sRegRevenue: number;
@@ -79,36 +81,15 @@ export default function HomeFinanceCard({ selectedSiteId }: HomeFinanceCardProps
   return (
     <div className="flex-2 bg-[#2A1A0F] rounded-2xl p-5 border border-[#3A2415] flex flex-col gap-4 overflow-y-auto min-h-0">
       {/* Date picker + query */}
-      <div className="flex items-center gap-2">
-        <input
-          type="date"
-          value={startDate}
-          max={today}
-          onChange={(e) => { setStartDate(e.target.value); if (endDate < e.target.value) setEndDate(e.target.value); }}
-          onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-          style={{ colorScheme: "dark" }}
-          className="cursor-pointer flex-1 min-w-0 border border-[#3A2415] rounded-xl px-3 py-2 text-xs bg-[#1E1208] text-white focus:outline-none focus:ring-1 focus:ring-[#E8883E]"
-        />
-        <span className="text-white/40 text-xs shrink-0">～</span>
-        <input
-          type="date"
-          value={endDate}
-          min={startDate}
-          max={today}
-          onChange={(e) => setEndDate(e.target.value)}
-          onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-          style={{ colorScheme: "dark" }}
-          className="cursor-pointer flex-1 min-w-0 border border-[#3A2415] rounded-xl px-3 py-2 text-xs bg-[#1E1208] text-white focus:outline-none focus:ring-1 focus:ring-[#E8883E]"
-        />
-        <button
-          onClick={() => handleQuery()}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#E8883E] rounded-xl text-white text-xs font-semibold hover:bg-[#d4762e] disabled:opacity-50 transition-all cursor-pointer shrink-0"
-        >
-          <Search size={13} />
-          {loading ? "查詢中..." : "查詢"}
-        </button>
-      </div>
+      <DateRangeSearch
+        startDate={startDate}
+        endDate={endDate}
+        max={today}
+        loading={loading}
+        onStartChange={(v) => { setStartDate(v); if (endDate < v) setEndDate(v); }}
+        onEndChange={(v) => setEndDate(v)}
+        onSearch={() => handleQuery()}
+      />
 
       {/* Error */}
       {error && (
@@ -120,7 +101,7 @@ export default function HomeFinanceCard({ selectedSiteId }: HomeFinanceCardProps
       {/* Loading skeleton */}
       {loading && (
         <div className="grid grid-cols-2 gap-2 xs:gap-3">
-          {Array.from({ length: siteHasDR ? 6 : 4 }).map((_, i) => (
+          {Array.from({ length: siteHasDR ? 4 : 1 }).map((_, i) => (
             <div key={i} className="bg-[#1E1208] rounded-xl p-3 animate-pulse">
               <div className="h-2 bg-[#3A2415] rounded w-16 mb-2" />
               <div className="h-5 bg-[#3A2415] rounded w-20" />
@@ -130,16 +111,20 @@ export default function HomeFinanceCard({ selectedSiteId }: HomeFinanceCardProps
       )}
 
       {/* Metric cards */}
-      {summary && !loading && (
-        <div className="grid grid-cols-2 gap-2 xs:gap-3">
-          <MetricCard label="無儲能費用" value={`$${fmt(summary.costWithoutBESS)}`} unit="NT$"                                   icon={<TrendingUp   size={13} className="text-white/30" />} />
-          <MetricCard label="有儲能費用" value={`$${fmt(summary.costWithBESS)}`}    unit="NT$"                                   icon={<TrendingDown size={13} className="text-[#7D9B7E]" />} />
-          <MetricCard label="節省金額"   value={`$${fmt(summary.savings)}`}          unit={`節省率 ${summary.savingsRate.toFixed(1)}%`} highlight icon={<Zap size={13} className="text-[#E8883E]" />} />
-          {siteHasDR   && <MetricCard label="DR需量反應收益"   value={`$${fmt(summary.drTotalCost)}`}  unit={`共 ${summary.drDays} 天`} highlight icon={<Zap        size={13} className="text-[#E8883E]" />} />}
-          {siteHasSReg && <MetricCard label="sReg輔助服務收益" value={`$${fmt(summary.sRegRevenue)}`} unit="NT$"                        highlight icon={<Zap        size={13} className="text-[#E8883E]" />} />}
-          {siteHasDR   && <MetricCard label="最終電費" value={`$${fmt(summary.costWithBESSAfterDR ?? summary.costWithBESS)}`} unit="有儲能費用 − DR收益" highlight icon={<DollarSign size={13} className="text-[#E8883E]" />} />}
-        </div>
-      )}
+      {summary && !loading && (() => {
+        // 尖離峰收益 = (尖峰放電量 × 尖峰電價) − (離峰充電量 × 離峰電價)
+        const peakArbitrage =
+          (summary.withoutPeakCost - summary.withPeakCost) -
+          (summary.withOffpeakCost - summary.withoutOffpeakCost);
+        return (
+          <div className="grid grid-cols-2 gap-2 xs:gap-3">
+            <MetricCard label="尖離峰收益" value={`$${fmt(peakArbitrage)}`} unit="尖峰放電 − 離峰充電" highlight icon={<Zap size={13} className="text-[#E8883E]" />} />
+            {siteHasDR   && <MetricCard label="DR需量反應收益"   value={`$${fmt(summary.drTotalCost)}`}  unit={`共 ${summary.drDays} 天`} highlight icon={<Zap        size={13} className="text-[#E8883E]" />} />}
+            {siteHasSReg && <MetricCard label="sReg輔助服務收益" value={`$${fmt(summary.sRegRevenue)}`} unit="NT$"                        highlight icon={<Zap        size={13} className="text-[#E8883E]" />} />}
+            {siteHasDR   && <MetricCard label="最終電費" value={`$${fmt(summary.costWithBESSAfterDR ?? summary.costWithBESS)}`} unit="有儲能費用 − DR收益" highlight icon={<DollarSign size={13} className="text-[#E8883E]" />} />}
+          </div>
+        );
+      })()}
 
       {/* Charts */}
       {summary && dailyReport.length > 0 && !loading && (

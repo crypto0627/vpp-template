@@ -5,7 +5,8 @@ import HomeSidebar from "@/components/layout/sidebar";
 import Home from "@/components/home";
 
 export default function HomePage() {
-  const { isLoading, isAuthorized } = useAuthGuard({ allowedRoles: ["admin"] });
+  // All authenticated roles (admin / worker / viewer) may visit 首頁.
+  const { isLoading, isAuthorized } = useAuthGuard();
 
   if (isLoading) {
     return (

@@ -14,7 +14,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function HomeBessStats({ siteId }: HomeBessStatsProps) {
-  const { stats, loading, isSupported } = useLiveStats(siteId);
+  const { stats, loading, error, isSupported } = useLiveStats(siteId);
 
   const batteryStatus = isSupported
     ? (loading && !stats ? null : (stats?.batteryStatus ?? "待機"))
@@ -24,6 +24,9 @@ export default function HomeBessStats({ siteId }: HomeBessStatsProps) {
 
   return (
     <div className="flex-1 bg-[#2A1A0F] rounded-2xl p-5 flex flex-col justify-between border border-[#3A2415] overflow-hidden min-h-0">
+      {error && stats && (
+        <p className="text-[10px] text-[#E05454] -mt-1 mb-1">⚠ 即時數據更新失敗，顯示為上次數據</p>
+      )}
       {/* 儲能狀態 */}
       <div>
         <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">

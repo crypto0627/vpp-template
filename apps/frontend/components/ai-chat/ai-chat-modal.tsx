@@ -171,6 +171,10 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
       }
 
       const data = await response.json();
+      // The server is the source of truth for the session id. For a brand-new
+      // chat the client used a temporary local id (Date.now()); adopt the real
+      // server id so subsequent messages resume the same persisted session.
+      const serverSessionId: string = data.sessionId ?? currentSessionId;
       const aiMessage: Message = {
         id: data.message.id,
         role: "assistant",
@@ -181,10 +185,11 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
       setSessions((prev) =>
         prev.map((session) =>
           session.id === currentSessionId
-            ? { ...session, messages: [...session.messages, aiMessage] }
+            ? { ...session, id: serverSessionId, messages: [...session.messages, aiMessage] }
             : session,
         ),
       );
+      if (serverSessionId !== currentSessionId) setCurrentSessionId(serverSessionId);
     } catch {
       const errorMessage: Message = {
         // eslint-disable-next-line react-hooks/purity
@@ -287,9 +292,22 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
 
   return (
     <>
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-5xl lg:w-[70%] h-[90%] lg:h-[80%] z-[101] animate-in fade-in zoom-in-95 duration-300">
+      {/* Backdrop — tap outside to close */}
+      <div
+        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Modal wrapper — full-screen on phones, centered dialog on sm+ */}
+      <div
+        className="fixed inset-0 z-[101] flex justify-center sm:items-center animate-in fade-in zoom-in-95 duration-300"
+        style={{
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+      >
         <div
-          className="flex h-full bg-gradient-to-br from-[#1A1915] via-[#262420] to-[#1A1915] rounded-xl shadow-2xl overflow-hidden border border-[#DA7756]/30"
+          className="relative flex w-full h-full sm:h-[92%] sm:w-[94%] sm:max-w-3xl md:h-[88%] md:w-[90%] md:max-w-4xl lg:h-[82%] lg:w-[80%] lg:max-w-5xl bg-gradient-to-br from-[#1A1915] via-[#262420] to-[#1A1915] rounded-none sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border sm:border-[#DA7756]/30"
           style={{ boxShadow: "0 0 0 1px rgba(218,119,86,0.3), 0 0 30px rgba(194,97,74,0.4), 0 0 60px rgba(218,119,86,0.3), 0 20px 40px rgba(0,0,0,0.3)" }}
         >
           {/* Mobile sidebar backdrop */}
@@ -301,8 +319,8 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
           )}
 
           {/* Sidebar */}
-          <div className={`${isSidebarOpen ? "w-64" : "w-0 lg:w-0"} border-r border-[#DA7756]/20 bg-gradient-to-b from-[#262420] to-[#1A1915] flex flex-col transition-all duration-300 overflow-hidden lg:relative absolute lg:z-0 z-50 h-full ${!isSidebarOpen && "lg:hidden"}`}>
-            <div className="h-16 px-4 border-b border-[#DA7756]/20 flex items-center">
+          <div className={`${isSidebarOpen ? "w-[80vw] max-w-[16rem] lg:w-64" : "w-0 lg:w-0"} border-r border-[#DA7756]/20 bg-gradient-to-b from-[#262420] to-[#1A1915] flex flex-col transition-all duration-300 overflow-hidden lg:relative absolute lg:z-0 z-50 h-full ${!isSidebarOpen && "lg:hidden"}`}>
+            <div className="h-14 sm:h-16 px-4 border-b border-[#DA7756]/20 flex items-center">
               <div className="flex items-center justify-between w-full">
                 <h3 className="text-xs font-semibold text-[#BEA98F] uppercase tracking-wider">對話記錄</h3>
                 <Button
@@ -374,19 +392,19 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
           {/* Main content */}
           <div className="flex-1 flex flex-col bg-gradient-to-b from-[#1A1915] to-[#262420]">
             {/* Header */}
-            <div className="h-16 flex items-center justify-between px-6 border-b border-[#DA7756]/20 bg-[#262420]/50">
-              <div className="flex items-center gap-3">
+            <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-[#DA7756]/20 bg-[#262420]/50">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="text-[#BEA98F] hover:text-[#F5F0EA] hover:bg-[#DA7756]/20 rounded-lg transition-all"
+                  className="shrink-0 text-[#BEA98F] hover:text-[#F5F0EA] hover:bg-[#DA7756]/20 rounded-lg transition-all"
                 >
                   {isSidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                 </Button>
-                <div>
-                  <h2 className="text-lg font-semibold text-[#F5F0EA] tracking-tight">華城電機</h2>
-                  <p className="text-xs text-[#BEA98F]/70 mt-0.5">能源管理智能顧問</p>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-semibold text-[#F5F0EA] tracking-tight truncate">華城電機</h2>
+                  <p className="text-xs text-[#BEA98F]/70 mt-0.5 truncate">能源管理智能顧問</p>
                 </div>
               </div>
               <Button
@@ -400,7 +418,7 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#1A1915]/30">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 bg-[#1A1915]/30">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
                   <div className="relative mb-6">
@@ -459,8 +477,8 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
             </div>
 
             {/* Input */}
-            <div className="p-5 border-t border-[#DA7756]/20 bg-[#262420]/50">
-              <div className="flex items-end gap-3">
+            <div className="p-3 sm:p-5 border-t border-[#DA7756]/20 bg-[#262420]/50">
+              <div className="flex items-end gap-2 sm:gap-3">
                 <Textarea
                   ref={inputRef}
                   value={input}
@@ -494,7 +512,7 @@ export function AiChatModal({ isOpen, onClose }: AiChatModalProps) {
                   <Send className="h-5 w-5" />
                 </Button>
               </div>
-              <p className="text-xs text-[#BEA98F]/60 mt-3 text-center">
+              <p className="hidden sm:block text-xs text-[#BEA98F]/60 mt-3 text-center">
                 按 <kbd className="px-1.5 py-0.5 bg-[#3D3A35] border border-[#DA7756]/30 rounded text-[#E8DDD3] font-mono text-[10px]">Enter</kbd> 發送 ·{" "}
                 <kbd className="px-1.5 py-0.5 bg-[#3D3A35] border border-[#DA7756]/30 rounded text-[#E8DDD3] font-mono text-[10px]">Shift</kbd> +{" "}
                 <kbd className="px-1.5 py-0.5 bg-[#3D3A35] border border-[#DA7756]/30 rounded text-[#E8DDD3] font-mono text-[10px]">Enter</kbd> 換行

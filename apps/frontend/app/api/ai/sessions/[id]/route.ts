@@ -7,9 +7,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireAuth();
+    const user = await requireAuth();
     const { id } = await params;
-    const messages = await chatService.getSessionMessages(id);
+    const messages = await chatService.getSessionMessages(id, user.id);
 
     return NextResponse.json({
       messages: messages.map((msg) => ({
@@ -33,9 +33,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireAuth();
+    const user = await requireAuth();
     const { id } = await params;
-    await chatService.deleteSession(id);
+    const deleted = await chatService.deleteSession(id, user.id);
+    if (!deleted) {
+      return NextResponse.json({ error: "對話不存在" }, { status: 404 });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {

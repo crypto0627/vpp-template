@@ -36,7 +36,7 @@ function StatBlock({
 }
 
 export default function HomeLeftStats({ selectedSiteId }: HomeLeftStatsProps) {
-  const { stats, loading, isSupported } = useLiveStats(selectedSiteId);
+  const { stats, loading, error, isSupported } = useLiveStats(selectedSiteId);
 
   const usageValue = isSupported
     ? loading && !stats ? null : stats ? stats.usageKWh.toFixed(2) : null
@@ -46,10 +46,15 @@ export default function HomeLeftStats({ selectedSiteId }: HomeLeftStatsProps) {
     ? loading && !stats ? null : stats ? `$${stats.costNTD.toLocaleString("zh-TW")}` : null
     : null;
 
-  const placeholder = !isSupported ? "暫無即時數據" : loading ? "載入中..." : "暫無數據";
+  const placeholder = !isSupported
+    ? "暫無即時數據"
+    : loading ? "載入中..." : error ? "連線失敗" : "暫無數據";
 
   return (
     <div className="flex-1 bg-[#2A1A0F] rounded-2xl p-5 flex flex-col justify-between border border-[#3A2415] overflow-hidden min-h-0">
+      {error && stats && (
+        <p className="text-[10px] text-[#E05454] -mt-1 mb-1">⚠ 即時數據更新失敗，顯示為上次數據</p>
+      )}
       <StatBlock
         label="今日總用電量"
         value={usageValue}

@@ -11,6 +11,7 @@ import { SiteId } from "@/types/data-type";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { getSiteConfig } from "@/config/site-configs";
 import { LiveClock } from "@/components/ui/live-clock";
+import { SiteNav } from "@/components/site/site-nav";
 
 const SiteSummaryCards = dynamic(() => import("@/components/site/site-summary-cards").then((m) => m.SiteSummaryCards), { loading: () => <div className="h-32 bg-[#2A1A0F] rounded-xl animate-pulse" /> });
 const PowerDemandChart = dynamic(() => import("@/components/site/power-demand-chart").then((m) => m.PowerDemandChart), { loading: () => <div className="h-80 bg-[#2A1A0F] rounded-xl animate-pulse" /> });
@@ -91,12 +92,7 @@ export default function SiteDetailPage() {
             <span className="px-2 py-0.5 rounded-lg text-xs bg-[#3A2415] text-[#E8883E] border border-[#E8883E]/20">
               {siteInfo.type === "storage" ? "儲能站" : "充電站"}
             </span>
-            {REPORT_SITE_IDS.includes(siteId) && (
-              <>
-                <Link href={`/sites/${siteId}/history`} className="px-3 py-1.5 text-xs bg-[#E8883E] text-white rounded-lg hover:bg-[#d4762e] transition-colors">歷史數據</Link>
-                <Link href={`/sites/${siteId}/report`} className="px-3 py-1.5 text-xs bg-[#3A2415] text-white/70 border border-[#E8883E]/20 rounded-lg hover:bg-[#4A3020] transition-colors">財報</Link>
-              </>
-            )}
+            {REPORT_SITE_IDS.includes(siteId) && <SiteNav siteId={siteId} />}
           </div>
         </div>
 
